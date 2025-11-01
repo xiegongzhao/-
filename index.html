@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机温馨提醒</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .tip-window {
+            position: absolute;
+            width: 85%;
+            max-width: 300px;
+            min-height: 100px;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1.4;
+            z-index: 1000;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 3px solid rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) rotate(-5deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+        
+        .control-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            z-index: 10000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .control-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255,71,87,0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(255,71,87,0.6);
+        }
+        
+        .timer {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffa502;
+        }
+        
+        .status {
+            font-size: 14px;
+            color: #70a1ff;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .tip-window {
+                width: 90%;
+                font-size: 16px;
+                min-height: 80px;
+                padding: 15px;
+            }
+            
+            .control-panel {
+                padding: 10px;
+            }
+            
+            .control-btn {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+            
+            .timer, .status {
+                font-size: 13px;
+            }
+        }
+        
+        /* 防止文本选择 */
+        .tip-window {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <!-- 提示窗口将在这里动态生成 -->
+    </div>
+    
+    <div class="control-panel">
+        <div class="status" id="status">弹窗运行中...</div>
+        <div class="timer" id="timer">10秒后关闭</div>
+        <button class="control-btn" onclick="closeAllWindows()">立即停止</button>
+    </div>
+
+    <script>
+        // 配置参数
+        const config = {
+            duration: 10000, // 10秒
+            minInterval: 50,  // 最小间隔50毫秒
+            maxInterval: 200, // 最大间隔200毫秒
+            maxWindows: 20    // 最大窗口数量
+        };
+
+        let programRunning = true;
+        let windows = [];
+        let startTime = Date.now();
+        let windowCount = 0;
+
+        // 温馨提醒语
+        const tips = [
+            '💖 请注意休息',
+            '🌟 保持良好姿势',
+            '😊 每天都要开心',
+            '🌈 不要太劳累',
+            '🎯 保持心情愉快',
+            '😄 保持微笑',
+            '🏃 要适当运动',
+            '🚀 等待下一次进步',
+            '📈 会越来越好的',
+            '❤️ 请照顾好自己',
+            '🌙 早点休息',
+            '✨ 愿所有烦恼都消失',
+            '🎵 别紧张',
+            '🌞 今天过得开心哦',
+            '🧥 天冷了,注意保暖',
+            '🎨 保持创造力',
+            '📚 每天进步一点点',
+            '🌿 享受当下时光',
+            '🎉 你是最棒的',
+            '💫 保持积极心态'
+        ];
+
+        // 背景颜色
+        const bgColors = [
+            'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
+            'linear-gradient(135deg, #A1C4FD 0%, #C2E9FB 100%)',
+            'linear-gradient(135deg, #FFD1FF 0%, #FAD0C4 100%)',
+            'linear-gradient(135deg, #D4FC79 0%, #96E6A1 100%)',
+            'linear-gradient(135deg, #FDCBF1 0%, #E6DEE9 100%)',
+            'linear-gradient(135deg, #A3BFFA 0%, #E4F0FE 100%)',
+            'linear-gradient(135deg, #FFECD2 0%, #FCB69F 100%)',
+            'linear-gradient(135deg, #84FAB0 0%, #8FD3F4 100%)',
+            'linear-gradient(135deg, #E0C3FC 0%, #8EC5FC 100%)',
+            'linear-gradient(135deg, #FEE140 0%, #FA709A 100%)'
+        ];
+
+        // 创建提示窗口
+        function createTipWindow() {
+            if (!programRunning || windows.length >= config.maxWindows) return;
+
+            const container = document.getElementById('container');
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            
+            // 计算合适的窗口大小
+            const windowWidth = Math.min(300, screenWidth * 0.85);
+            const windowHeight = 100;
+
+            // 随机位置（确保在屏幕内）
+            const x = Math.random() * (screenWidth - windowWidth);
+            const y = Math.random() * (screenHeight - windowHeight - 100) + 50; // 避开控制面板
+
+            // 创建窗口元素
+            const tipWindow = document.createElement('div');
+            tipWindow.className = 'tip-window';
+            tipWindow.style.left = x + 'px';
+            tipWindow.style.top = y + 'px';
+            tipWindow.style.width = windowWidth + 'px';
+            tipWindow.style.background = bgColors[Math.floor(Math.random() * bgColors.length)];
+
+            // 随机选择提示语
+            const tipText = tips[Math.floor(Math.random() * tips.length)];
+            tipWindow.textContent = tipText;
+
+            // 添加点击关闭功能
+            tipWindow.onclick = function() {
+                removeWindow(this);
+            };
+
+            // 添加触摸支持
+            tipWindow.ontouchstart = function(e) {
+                e.preventDefault();
+                removeWindow(this);
+            };
+
+            container.appendChild(tipWindow);
+            windows.push(tipWindow);
+            windowCount++;
+
+            // 3秒后自动淡出
+            setTimeout(() => {
+                removeWindow(tipWindow);
+            }, 3000);
+        }
+
+        // 移除窗口
+        function removeWindow(windowElement) {
+            if (windowElement.parentNode) {
+                // 添加淡出动画
+                windowElement.style.animation = 'popIn 0.3s reverse forwards';
+                setTimeout(() => {
+                    if (windowElement.parentNode) {
+                        windowElement.parentNode.removeChild(windowElement);
+                    }
+                    windows = windows.filter(w => w !== windowElement);
+                }, 300);
+            }
+        }
+
+        // 关闭所有窗口
+        function closeAllWindows() {
+            programRunning = false;
+            document.getElementById('status').textContent = '正在关闭...';
+            document.getElementById('status').style.color = '#ff4757';
+            
+            // 逐个移除窗口
+            windows.forEach(window => {
+                removeWindow(window);
+            });
+            
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <div style="
+                        display: flex; 
+                        justify-content: center; 
+                        align-items: center; 
+                        height: 100vh; 
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        font-size: 24px;
+                        text-align: center;
+                        flex-direction: column;
+                        gap: 20px;
+                    ">
+                        <div>🎉 程序已结束</div>
+                        <div style="font-size: 16px; opacity: 0.8;">感谢使用温馨提醒</div>
+                        <button onclick="location.reload()" style="
+                            background: white; 
+                            color: #667eea; 
+                            border: none; 
+                            padding: 12px 30px; 
+                            border-radius: 25px; 
+                            font-size: 16px; 
+                            cursor: pointer;
+                            margin-top: 20px;
+                        ">重新开始</button>
+                    </div>
+                `;
+            }, 1000);
+        }
+
+        // 定时创建窗口
+        function schedulePopup() {
+            if (!programRunning) return;
+            
+            const interval = Math.random() * (config.maxInterval - config.minInterval) + config.minInterval;
+            setTimeout(() => {
+                createTipWindow();
+                schedulePopup();
+            }, interval);
+        }
+
+        // 更新计时器
+        function updateTimer() {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, config.duration - elapsed);
+            const seconds = Math.ceil(remaining / 1000);
+            
+            document.getElementById('timer').textContent = `${seconds}秒后关闭`;
+            document.getElementById('status').textContent = `已创建 ${windowCount} 个提醒`;
+            
+            if (remaining > 0) {
+                requestAnimationFrame(updateTimer);
+            } else {
+                closeAllWindows();
+            }
+        }
+
+        // 初始化
+        function init() {
+            console.log('🚀 手机温馨提醒已启动');
+            console.log('📱 专为移动设备优化');
+            console.log('💡 点击弹窗可单独关闭');
+            console.log('⏰ 10秒后自动结束');
+            
+            // 启动弹窗调度
+            schedulePopup();
+            
+            // 启动计时器
+            updateTimer();
+            
+            // 防止滚动
+            document.addEventListener('touchmove', function(e) {
+                if (programRunning) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+
+        // 页面加载完成后启动
+        window.addEventListener('load', init);
+        
+        // 适应屏幕旋转
+        window.addEventListener('resize', function() {
+            // 重新调整窗口位置
+            windows.forEach(window => {
+                const screenWidth = window.innerWidth;
+                const screenHeight = window.innerHeight;
+                const windowWidth = parseInt(window.style.width);
+                const x = Math.random() * (screenWidth - windowWidth);
+                const y = Math.random() * (screenHeight - 100 - 100) + 50;
+                window.style.left = x + 'px';
+                window.style.top = y + 'px';
+            });
+        });
+    </script>
+</body>
+</html>
